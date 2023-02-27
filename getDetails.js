@@ -21,7 +21,7 @@ var schedules = {
 
 var sc2={};
 
-const user_details = {
+const user_details2 = {
     chatId:'',
     id:'',
     pass: '',
@@ -38,13 +38,17 @@ const user_details = {
     lastSynced:''
 };
 
+const user_details={};
 
 
-let test= async(id, pass)=> {
+let test= async(id, pass, chatId)=> {
+    user_details[chatId]=user_details2;
+    user_details[chatId].chatId=chatId;
+
     var browser='';
     try { 
-        user_details.id=id;
-        user_details.pass=pass;
+        user_details[chatId].id=id;
+        user_details[chatId].pass=pass;
         browser = await puppeteer.launch({
             headless: false,
             args: ["--no-sandbox", '--disable-setuid-sandbox'],
@@ -79,22 +83,22 @@ let test= async(id, pass)=> {
         ]);
 
         // get user basic details
-        user_details.cgpa = await page.$eval('#cgpa', (el) => el.textContent.trim());
-        user_details.p_name = await page.$eval('#p_name', (el) => el.textContent.trim());
+        user_details[chatId].cgpa = await page.$eval('#cgpa', (el) => el.textContent.trim());
+        user_details[chatId].p_name = await page.$eval('#p_name', (el) => el.textContent.trim());
 
         var temp_res = await page.$eval('#regno', (el) => el.textContent.trim());
         const regex = /Reg. No.: (\d+) \| Section: (\w+)/;
         const matches = temp_res.match(regex);
         if(matches){
-            user_details.regno=matches[1];
-            user_details.section=matches[2];
+            user_details[chatId].regno=matches[1];
+            user_details[chatId].section=matches[2];
         }
         else regno=temp_res;
 
-        user_details.progname = await page.$eval('#progname', (el) => el.textContent.trim());
+       user_details[chatId].progname = await page.$eval('#progname', (el) => el.textContent.trim());
 
         var tempat = await page.$eval('#AttPercent', (el) => el.textContent.trim());
-        user_details.AttPercent=tempat.match(/\d+/)[0];
+        user_details[chatId].AttPercent=tempat.match(/\d+/)[0];
 
         //get Assignments
 
@@ -109,7 +113,7 @@ let test= async(id, pass)=> {
         });
         
         penasss.forEach((item) => {
-                user_details.pendingAss[item.subjectCode] = item.peninfo;
+                user_details[chatId].pendingAss[item.subjectCode] = item.peninfo;
         });
         
 
@@ -139,7 +143,7 @@ let test= async(id, pass)=> {
         });
         
         sub.forEach((item) => {
-                user_details.subjects[item.subjectCode] = {
+                user_details[chatId].subjects[item.subjectCode] = {
                 roll: item.roll,
                 subjectName: item.subjectName,
                 subatt: item.subatt
@@ -222,10 +226,10 @@ let test= async(id, pass)=> {
                 
                             sc2[x][timeSlot].push({
                                 'Sub_Code': pairs[i].cValue,
-                                'Sub_Name': user_details.subjects[pairs[i].cValue].subjectName,
+                                'Sub_Name': user_details[chatId].subjects[pairs[i].cValue].subjectName,
                                 'Room': pairs[i].rValue,
-                                'Roll_No': user_details.subjects[pairs[i].cValue].roll,
-                                'Att': user_details.subjects[pairs[i].cValue].subatt
+                                'Roll_No': user_details[chatId].subjects[pairs[i].cValue].roll,
+                                'Att': user_details[chatId].subjects[pairs[i].cValue].subatt
                                 });
                     
                     }
@@ -239,7 +243,7 @@ let test= async(id, pass)=> {
 
         //log everything
         // console.log("oh yeah!!",user_details);
-        user_details.lastSynced=moment().tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
+        user_details[chatId].lastSynced=moment().tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
         await browser.close();
     }
     catch (error) {

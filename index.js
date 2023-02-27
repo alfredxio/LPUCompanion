@@ -47,7 +47,7 @@ const User = mongoose.model('User', userSchema);
 // };
 
 
-var user_details = {};
+const user_details = {};
 
 
 
@@ -84,7 +84,7 @@ bot.onText(/\/start/,async (msg) => {
 bot.onText(/\/create/, async (msg) => {
     const chatId = msg.chat.id;
     
-    var newu = {
+    const newu = {
         id: "",
         pass: "",
         expecting: ""
@@ -117,12 +117,13 @@ bot.on('message', (msg) => {
             user_details[chatId].expecting = 'tnow';
             bot.sendMessage(chatId, `Wait while we are collecting data`);   
         
-            getDetails.test(user_details[chatId].id, user_details[chatId].pass)
+            getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
             .then(() => {
-                // user_details=getDetails.user_details;
-                getDetails.user_details.chatId=chatId;
-                // console.log(user_details);
-                const newUser = new User(getDetails.user_details);
+                
+                const userDetails=getDetails.user_details[chatId];
+                // userDetails.chatId=chatId;
+
+                const newUser = new User(userDetails);
                 newUser.save((err) => {
                     if (err) {
                     console.log(err);
@@ -211,15 +212,17 @@ bot.onText(/\/timetable/, async (msg) => {
             bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
             return;
         }
-        getDetails.test(user.id, user.pass)
+        getDetails.test(user.id, user.pass, chatId)
         .then(() => {
             // user_details = getDetails.user_details;
             // user_details.chatId = chatId;
             // console.log(user_details);
-            getDetails.user_details.chatId=chatId;
+            const prevUser=getDetails.user_details[chatId];
+            // prevUser.chatId=chatId;
+
             User.findOneAndUpdate(
             { chatId: chatId }, // search for the document with the given chatId
-            getDetails.user_details, // update the document with the new user_details object
+            prevUser, // update the document with the new user_details object
             { upsert: true, new: true }, // upsert: create a new document if it doesn't exist, new: return the modified document instead of the original
             (err, doc) => {
                 if (err) {
