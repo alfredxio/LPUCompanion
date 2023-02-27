@@ -22,6 +22,7 @@ var schedules = {
 var sc2={};
 
 const user_details = {
+    chatId:'',
     id:'',
     pass: '',
     cgpa : '',

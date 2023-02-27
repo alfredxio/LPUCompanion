@@ -1,3 +1,4 @@
+//latest
 const TelegramBot = require('node-telegram-bot-api');
 const getDetails = require('./getDetails');
 const mongoose = require('mongoose');
@@ -107,10 +108,10 @@ bot.on('message', (msg) => {
        
         getDetails.test(user_details.id, user_details.pass)
         .then(() => {
-            user_details=getDetails.user_details;
-            user_details.chatId=chatId;
+            // user_details=getDetails.user_details;
+            getDetails.user_details.chatId=chatId;
             // console.log(user_details);
-            const newUser = new User(user_details);
+            const newUser = new User(getDetails.user_details);
             newUser.save((err) => {
                 if (err) {
                   console.log(err);
@@ -200,13 +201,13 @@ bot.onText(/\/timetable/, async (msg) => {
         }
         getDetails.test(user.id, user.pass)
         .then(() => {
-            user_details = getDetails.user_details;
-            user_details.chatId = chatId;
+            // user_details = getDetails.user_details;
+            // user_details.chatId = chatId;
             // console.log(user_details);
-            
+            getDetails.user_details.chatId=chatId;
             User.findOneAndUpdate(
             { chatId: chatId }, // search for the document with the given chatId
-            user_details, // update the document with the new user_details object
+            getDetails.user_details, // update the document with the new user_details object
             { upsert: true, new: true }, // upsert: create a new document if it doesn't exist, new: return the modified document instead of the original
             (err, doc) => {
                 if (err) {
