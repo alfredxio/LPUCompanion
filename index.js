@@ -352,3 +352,9 @@ bot.onText(/\/stop/, async (msg) => {
         bot.sendMessage(chatId, "An error occurred while fetching the user's profile.");
     }
 });
+
+
+process.on("unhandledRejection", (error) => {
+    console.error("Unhandled Promise Rejection:", error);
+  });
+  
