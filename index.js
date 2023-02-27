@@ -29,22 +29,27 @@ const userSchema = new mongoose.Schema({
   
 const User = mongoose.model('User', userSchema);
 
-var user_details = {
-    chatId:'',
-    id:'',
-    pass: '',
-    cgpa : '',
-    p_name : '',
-    regno : '',
-    section: '',
-    progname : '',
-    AttPercent : '',
-    pendingAss:{},
-    subjects: {},
-    schedules: {},
-    notify: false,
-    lastSynced:''
-};
+// var user_details = {
+//     chatId:'',
+//     id:'',
+//     pass: '',
+//     cgpa : '',
+//     p_name : '',
+//     regno : '',
+//     section: '',
+//     progname : '',
+//     AttPercent : '',
+//     pendingAss:{},
+//     subjects: {},
+//     schedules: {},
+//     notify: false,
+//     lastSynced:''
+// };
+
+
+var user_details = {};
+
+
 
 const replyKeyboard = {
     keyboard: [
@@ -76,11 +81,16 @@ bot.onText(/\/start/,async (msg) => {
     });
 });
 
-
-let expecting = '';
-
 bot.onText(/\/create/, async (msg) => {
     const chatId = msg.chat.id;
+    
+    var newu = {
+        id: "",
+        pass: "",
+        expecting: ""
+    };
+    user_details[chatId]=newu;
+
     bot.sendMessage(chatId, 'Please enter your LPU UMS login credentials.')
     .then(() => {
         return bot.sendMessage(chatId, 'Username:');
@@ -89,43 +99,45 @@ bot.onText(/\/create/, async (msg) => {
         console.error(error);
         bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later.');
     });
-    expecting='username';    
+    user_details[chatId].expecting='username';    
 });
 
 
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
     const messageText = msg.text;
-    if (expecting === 'username') {
-      user_details.id = messageText;
-      expecting = 'password';
-      bot.sendMessage(chatId, 'Password (Do not worry! It will be confidential):');
-    }
-    else if (expecting === 'password') {
-      user_details.pass = messageText;
-      expecting = 'tnow';
-      bot.sendMessage(chatId, `Wait while we are collecting data`);   
-       
-        getDetails.test(user_details.id, user_details.pass)
-        .then(() => {
-            // user_details=getDetails.user_details;
-            getDetails.user_details.chatId=chatId;
-            // console.log(user_details);
-            const newUser = new User(getDetails.user_details);
-            newUser.save((err) => {
-                if (err) {
-                  console.log(err);
-                  bot.sendMessage(chatId, 'An error occurred. Please try again later.');
-                } else {
-                  bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
-                }
-            });
+    if(chatId in user_details){
+        if (user_details[chatId].expecting === 'username') {
+            user_details[chatId].id = messageText;
+            user_details[chatId].expecting = 'password';
+        bot.sendMessage(chatId, 'Password (Do not worry! It will be confidential):');
+        }
+        else if (user_details[chatId].expecting === 'password') {
+            user_details[chatId].pass = messageText;
+            user_details[chatId].expecting = 'tnow';
+            bot.sendMessage(chatId, `Wait while we are collecting data`);   
         
-        })
-        .catch((error) => {
-            console.error(error);
-            bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later. /start');
-        });
+            getDetails.test(user_details[chatId].id, user_details[chatId].pass)
+            .then(() => {
+                // user_details=getDetails.user_details;
+                getDetails.user_details.chatId=chatId;
+                // console.log(user_details);
+                const newUser = new User(getDetails.user_details);
+                newUser.save((err) => {
+                    if (err) {
+                    console.log(err);
+                    bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+                    } else {
+                    bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
+                    }
+                });
+            
+            })
+            .catch((error) => {
+                console.error(error);
+                bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later. /start');
+            });
+        }
     }
 });
 
