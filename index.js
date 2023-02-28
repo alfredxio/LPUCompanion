@@ -90,7 +90,7 @@ bot.onText(/\/create/, async (msg) => {
         expecting: ""
     };
     user_details[chatId]=newu;
-
+    console.log(chatId+" "+JSON.stringify(user_details));
     bot.sendMessage(chatId, 'Please enter your LPU UMS login credentials.')
     .then(() => {
         return bot.sendMessage(chatId, 'Username:');
@@ -100,6 +100,7 @@ bot.onText(/\/create/, async (msg) => {
         bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later.');
     });
     user_details[chatId].expecting='username';    
+
 });
 
 
@@ -119,10 +120,10 @@ bot.on('message', (msg) => {
         
             getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
             .then(() => {
-                
+                console.log("FUN:"+chatId);//
                 const userDetails=getDetails.user_details[chatId];
+                console.log("FUN:"+JSON.stringify(userDetails));
                 // userDetails.chatId=chatId;
-
                 const newUser = new User(userDetails);
                 newUser.save((err) => {
                     if (err) {
