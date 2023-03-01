@@ -275,33 +275,33 @@ bot.onText(/\/timetable/, async (msg) => {
 
 
 
-// cron.schedule('* * * * *', () => {
+cron.schedule('* * * * *', () => {
     
-//     const timezone = 'Asia/Kolkata'; 
-//     const now = moment(); 
-//     const dayOfWeek = now.tz(timezone).format('dddd').toLowerCase();
-//     const time = now.tz(timezone).format('HH:mm'); 
+    const timezone = 'Asia/Kolkata'; 
+    const now = moment(); 
+    const dayOfWeek = now.tz(timezone).format('dddd').toLowerCase();
+    const time = now.tz(timezone).format('HH:mm'); 
 
-//     MessageTime.findOne({}).exec((err, data) => {
-//       if (err) {
-//         console.error(err);
-//         return;
-//       }
-//       const messages = data[dayOfWeek];
-//       if (messages && messages.length > 0) {
-//         const messagesToSend = messages.filter((m) => m.time === time);
-//         messagesToSend.forEach((messageToSend) => {
-//         bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend)
-//             .then(() => {
-//                 // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
-//             })
-//             .catch((error) => {
-//                 console.error(error);
-//             });
-//         });
-//       }
-//     });
-// });
+    MessageTime.findOne({}).exec((err, data) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      const messages = data[dayOfWeek];
+      if (messages && messages.length > 0) {
+        const messagesToSend = messages.filter((m) => m.time === time);
+        messagesToSend.forEach((messageToSend) => {
+        bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend,{parse_mode:'HTML'})
+            .then(() => {
+                // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+        });
+      }
+    });
+});
 
 
 
