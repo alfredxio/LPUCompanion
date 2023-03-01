@@ -3,12 +3,14 @@ const TelegramBot = require('node-telegram-bot-api');
 const getDetails = require('./getDetails');
 const mongoose = require('mongoose');
 const moment = require('moment-timezone');
-const schedule = require('node-schedule');
+const cron = require('node-cron');
 const keys = require('./tokens');
 //check
 const bot = new TelegramBot(keys.telebotkey, { polling: true });
 mongoose.set('strictQuery', false);
-mongoose.connect(keys.mongouri, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(keys.mongouri, { useNewUrlParser: true, useUnifiedTopology: true })
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.log('Error with mongoDB'));
 
 const userSchema = new mongoose.Schema({
     chatId: {type: Number,required: true,unique: true},
@@ -26,29 +28,29 @@ const userSchema = new mongoose.Schema({
     notify: {type: Boolean,default: false},
     lastSynced:{type:String}
 });
+
+const messageSchema = new mongoose.Schema({
+    chatId: { type: Number, required: true },
+    time: { type: String, required: true },
+    msgtosend: { type: String, required: true }
+});
+  
+const messageTimeSchema = new mongoose.Schema({
+    sunday: [messageSchema],
+    monday: [messageSchema],
+    tuesday: [messageSchema],
+    wednesday: [messageSchema],
+    thursday: [messageSchema],
+    friday: [messageSchema],
+    saturday: [messageSchema],
+});
+
   
 const User = mongoose.model('User', userSchema);
-
-// var user_details = {
-//     chatId:'',
-//     id:'',
-//     pass: '',
-//     cgpa : '',
-//     p_name : '',
-//     regno : '',
-//     section: '',
-//     progname : '',
-//     AttPercent : '',
-//     pendingAss:{},
-//     subjects: {},
-//     schedules: {},
-//     notify: false,
-//     lastSynced:''
-// };
+const MessageTime = mongoose.model('MessageTime', messageTimeSchema);
 
 
 const user_details = {};
-
 
 
 const replyKeyboard = {
@@ -83,14 +85,13 @@ bot.onText(/\/start/,async (msg) => {
 
 bot.onText(/\/create/, async (msg) => {
     const chatId = msg.chat.id;
-    
     const newu = {
         id: "",
         pass: "",
         expecting: ""
     };
     user_details[chatId]=newu;
-    console.log(chatId+" "+JSON.stringify(user_details));
+    // console.log(chatId+" "+JSON.stringify(user_details));
     bot.sendMessage(chatId, 'Please enter your LPU UMS login credentials.')
     .then(() => {
         return bot.sendMessage(chatId, 'Username:');
@@ -104,7 +105,7 @@ bot.onText(/\/create/, async (msg) => {
 });
 
 
-bot.on('message', (msg) => {
+bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const messageText = msg.text;
     if(chatId in user_details){
@@ -118,11 +119,11 @@ bot.on('message', (msg) => {
             user_details[chatId].expecting = 'tnow';
             bot.sendMessage(chatId, `Wait while we are collecting data`);   
         
-            getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
+            await getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
             .then(() => {
-                console.log("FUN:"+chatId);//
+                // console.log("FUN:"+chatId);//
                 const userDetails=getDetails.user_details[chatId];
-                console.log("FUN:"+JSON.stringify(userDetails));
+                // console.log("FUN:"+JSON.stringify(userDetails));
                 // userDetails.chatId=chatId;
                 const newUser = new User(userDetails);
                 newUser.save((err) => {
@@ -222,9 +223,9 @@ bot.onText(/\/timetable/, async (msg) => {
             // prevUser.chatId=chatId;
 
             User.findOneAndUpdate(
-            { chatId: chatId }, // search for the document with the given chatId
-            prevUser, // update the document with the new user_details object
-            { upsert: true, new: true }, // upsert: create a new document if it doesn't exist, new: return the modified document instead of the original
+            { chatId: chatId }, 
+            prevUser,
+            { upsert: true, new: true }, 
             (err, doc) => {
                 if (err) {
                 console.log(err);
@@ -272,51 +273,74 @@ bot.onText(/\/timetable/, async (msg) => {
     }
 });
 
-function sendNotification(sch,chatId) {
-    console.log("Running");
-    const day = moment.tz('Asia/Kolkata').format('dddd').toLowerCase();
-    const today = moment().tz('Asia/Kolkata');
-    const month = today.format('M');
-    const year = today.format('YYYY');
-    const date = today.format('D');
 
-    const t_table=sch[day];
 
-    for (const time in t_table) {
-        const subjects=t_table[time];
-        var [startHour, startMin] = time.split('-')[0].split(':').map(Number);
-        if(!startMin)startMin=0;
-        var notifyHour = startHour;
-        var notifyMin = startMin - 15;
-        if(notifyMin<0){
-            notifyHour--;
-            if(notifyHour>=0 && notifyHour<=6)notifyHour+=12;
-            notifyMin=45;
+// cron.schedule('* * * * *', () => {
+    
+//     const timezone = 'Asia/Kolkata'; 
+//     const now = moment(); 
+//     const dayOfWeek = now.tz(timezone).format('dddd').toLowerCase();
+//     const time = now.tz(timezone).format('HH:mm'); 
+
+//     MessageTime.findOne({}).exec((err, data) => {
+//       if (err) {
+//         console.error(err);
+//         return;
+//       }
+//       const messages = data[dayOfWeek];
+//       if (messages && messages.length > 0) {
+//         const messagesToSend = messages.filter((m) => m.time === time);
+//         messagesToSend.forEach((messageToSend) => {
+//         bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend)
+//             .then(() => {
+//                 // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
+//             })
+//             .catch((error) => {
+//                 console.error(error);
+//             });
+//         });
+//       }
+//     });
+// });
+
+
+
+const addMessageTime=async(sch,chatId)=>{
+    try{
+        for(const day in sch){
+            const t_table=sch[day];
+            for (const time in t_table) {
+                const subjects=t_table[time];
+                var [startHour, startMin] = time.split('-')[0].split(':').map(Number);
+                if(!startMin)startMin=0;
+                var notifyHour = startHour;
+                var notifyMin = startMin - 15;
+                if(notifyMin<0){
+                    notifyHour--;
+                    if(notifyHour>=0 && notifyHour<=6)notifyHour+=12;
+                    notifyMin=45;
+                }
+                for (const subject of subjects) {
+                    let message = '<b>Class Reminder:</b>\n';
+                    message += `[${time}]\n`;
+                    message += `\t<code>${subject.Sub_Code}:${subject.Sub_Name}\n`;
+                    message += `\t${subject.Room} | ${subject.Roll_No} | ${subject.Att}%\n`;
+                    message+='</code>\n';
+                    const sendTime = notifyHour+":"+notifyMin;
+                    const update = { $push: { [day]: { chatId: chatId, time: sendTime.padStart(5, '0'), msgtosend: message } } };
+                    const options = { upsert: true };
+                    await MessageTime.updateOne({}, update, options)
+                    .then(()=>{})
+                    .catch(error => {console.error('Error saving dayMessages document:', error);return false;});
+                }
+            }
         }
-
-        for (const subject of subjects) {
-            let message = 'Class Reminder:\n';
-            message += time + '\n';
-            message += `\t${subject.Sub_Code}:${subject.Sub_Name}\n`;
-            message += `\t${subject.Room} | ${subject.Roll_No} | ${subject.Att}%\n`;
-            message+='\n';
-            message=`<code>${message}</code>`;
-            // console.log(year, month, date, notifyHour, notifyMin, 0);
-            const istDate = new Date(year, month, date, notifyHour, notifyMin, 0);
-            const utcTime = istDate.getTime() + (istDate.getTimezoneOffset() * 60000) + (5.5 * 60 * 60000);
-            const unixTime = Math.floor(utcTime / 1000);
-            
-            console.log(unixTime,utcTime);
-
-            bot.sendMessage(chatId, message, {
-                parse_mode: 'HTML',
-                disable_notification: false,
-                schedule_date: unixTime
-            });
-        }
+        return true;
+    }catch (error) {
+        console.error(error);
     }
+};
 
-  }
 
 bot.onText(/\/notify/, async (msg) => {
     const chatId = msg.chat.id;
@@ -326,13 +350,17 @@ bot.onText(/\/notify/, async (msg) => {
             bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
             return;
         }
-        User.updateOne({ chatId }, { notify: true }, function(err, res){});
-        
-        schedule.scheduleJob('*/10 * * * * *', () => {
-            sendNotification(user.schedules,chatId);
-        });
-        bot.sendMessage(chatId, "Great! We will notify you 15 mins before every class..");
-        
+        if(user.notify==false){
+            await addMessageTime(user.schedules,chatId) //adding all times to database
+            .then(() => {
+                User.updateOne({ chatId }, { notify: true }, function(err, res){});
+                bot.sendMessage(chatId, "Great! We will notify you 15 mins before every class..");
+            })
+            .catch(error => console.error('Error saving dayMessages document:'));
+        }
+        else{
+            bot.sendMessage(chatId, "Notification system already active. /stop and again /notify to update.");
+        }
     } catch (error) {
         console.error(error);
         bot.sendMessage(chatId, "An error occurred while fetching the user's profile.");
@@ -347,8 +375,37 @@ bot.onText(/\/stop/, async (msg) => {
             bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
             return;
         }
-        User.updateOne({ chatId }, { notify: false }, function(err, res){});
+        if(user.notify==false){
+            bot.sendMessage(chatId, "Notification service already inactive.");
+            return;
+        }
 
+        const chatIdToDelete = chatId; 
+        const query = { 
+        $or: [
+            { "sunday.chatId": chatIdToDelete },
+            { "monday.chatId": chatIdToDelete },
+            { "tuesday.chatId": chatIdToDelete },
+            { "wednesday.chatId": chatIdToDelete },
+            { "thursday.chatId": chatIdToDelete },
+            { "friday.chatId": chatIdToDelete },
+            { "saturday.chatId": chatIdToDelete },
+        ]
+        };
+
+        await MessageTime.updateMany(query, {
+            $pull: {
+                sunday: { chatId: chatIdToDelete },
+                monday: { chatId: chatIdToDelete },
+                tuesday: { chatId: chatIdToDelete },
+                wednesday: { chatId: chatIdToDelete },
+                thursday: { chatId: chatIdToDelete },
+                friday: { chatId: chatIdToDelete },
+                saturday: { chatId: chatIdToDelete },
+            }
+        });
+
+        await User.updateOne({ chatId }, { notify: false });
         bot.sendMessage(chatId, "Notifications stopped!!");
         
     } catch (error) {
@@ -356,6 +413,7 @@ bot.onText(/\/stop/, async (msg) => {
         bot.sendMessage(chatId, "An error occurred while fetching the user's profile.");
     }
 });
+
 
 
 process.on("unhandledRejection", (error) => {
