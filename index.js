@@ -49,14 +49,15 @@ const messageTimeSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const MessageTime = mongoose.model('MessageTime', messageTimeSchema);
 
-
+const userMap = new Map();
 const user_details = {};
 
 
 const replyKeyboard = {
     keyboard: [
         ['/timetable', '/assignments'],
-        ['/update','/delete']
+        ['/update','/delete'],
+        ['/notify','/stop']
     ],
     resize_keyboard: true,
     one_time_keyboard: true,
@@ -101,7 +102,6 @@ bot.onText(/\/create/, async (msg) => {
         bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later.');
     });
     user_details[chatId].expecting='username';    
-
 });
 
 
@@ -117,35 +117,46 @@ bot.on('message', async (msg) => {
         else if (user_details[chatId].expecting === 'password') {
             user_details[chatId].pass = messageText;
             user_details[chatId].expecting = 'tnow';
+            
             bot.sendMessage(chatId, `Wait while we are collecting data`);   
         
-            await getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
-            .then(() => {
-                // console.log("FUN:"+chatId);//
-                const userDetails=getDetails.user_details[chatId];
-                // console.log("FUN:"+JSON.stringify(userDetails));
-                // userDetails.chatId=chatId;
-                const newUser = new User(userDetails);
-                newUser.save((err) => {
-                    if (err) {
-                    console.log(err);
-                    bot.sendMessage(chatId, 'An error occurred. Please try again later.');
-                    } else {
-                    bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
-                    }
-                });
+            // await getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId)
+            // .then(() => {
+            //     // console.log("FUN:"+chatId);//
+            //     const userDetails=getDetails.user_details[chatId];
+            //     // console.log("FUN:"+JSON.stringify(userDetails));
+            //     // userDetails.chatId=chatId;
+            //     const newUser = new User(userDetails);
+            //     newUser.save((err) => {
+            //         if (err) {
+            //         console.log(err);
+            //         bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+            //         } else {
+            //         bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
+            //         }
+            //     });
             
-            })
-            .catch((error) => {
-                console.error(error);
+            // })
+            // .catch((error) => {
+            //     console.error(error);
+            //     bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later. /start');
+            // });
+
+            try {
+                const userDetails = await getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId);
+                const newUser = new User(userDetails);
+                await newUser.save();
+                bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
+            } catch (error) {
+                // console.error(error);
                 bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later. /start');
-            });
+            }
         }
     }
 });
 
 
-bot.onText(/\/timetable/, async (msg) => {
+bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     const chatId = msg.chat.id;
     try {
         const user = await User.findOne({ chatId });
@@ -153,11 +164,10 @@ bot.onText(/\/timetable/, async (msg) => {
             bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
             return;
         }
-
-        const day = moment.tz('Asia/Kolkata').format('dddd').toLowerCase();
+        let day = match[1] ? match[1].toLowerCase() : moment.tz('Asia/Kolkata').format('dddd').toLowerCase();
+        const day2 = moment.tz('Asia/Kolkata').format('dddd').toLowerCase();
         const data1=user.schedules[day];
-        
-        let message = '<strong>Today\'s TimeTable:</strong><code>\n\n';
+        let message = `<strong>${day===day2?"Today":(day.charAt(0).toUpperCase() + day.slice(1))}'s TimeTable:</strong><code>\n\n`;
         for (const timeSlot in data1) {
             message += `</code>[${timeSlot}]<code> \n`;
             data1[timeSlot].forEach((entry) => {
@@ -168,7 +178,7 @@ bot.onText(/\/timetable/, async (msg) => {
         }
         message+=`\n</code>Last Synced:${user.lastSynced}`;
         bot.sendMessage(chatId, `${message}`,{parse_mode:'HTML'});
-        
+    
 
     } catch (error) {
       console.error(error);
@@ -214,32 +224,27 @@ bot.onText(/\/timetable/, async (msg) => {
             bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
             return;
         }
-        getDetails.test(user.id, user.pass, chatId)
-        .then(() => {
-            // user_details = getDetails.user_details;
-            // user_details.chatId = chatId;
-            // console.log(user_details);
-            const prevUser=getDetails.user_details[chatId];
-            // prevUser.chatId=chatId;
 
-            User.findOneAndUpdate(
-            { chatId: chatId }, 
-            prevUser,
-            { upsert: true, new: true }, 
-            (err, doc) => {
-                if (err) {
-                console.log(err);
-                bot.sendMessage(chatId, 'An error occurred. Please try again later.');
-                } else {
-                bot.sendMessage(chatId, 'Your profile has been updated! You can /start again. Enjoy!');
+        try {
+            const newUserDetails = await getDetails.test(user.id, user.pass, chatId);
+            await User.findOneAndUpdate(
+                { chatId: chatId }, 
+                newUserDetails,
+                { upsert: true, new: true }, 
+                (err, doc) => {
+                    if (err) {
+                    console.log(err);
+                    bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+                    } else {
+                    bot.sendMessage(chatId, 'Your profile has been updated! You can /start again. Enjoy!');
+                    }
                 }
-            }
             );
-        })
-        .catch((error) => {
-            console.error(error);
+        } catch (error) {
+            // console.error(error);
             bot.sendMessage(chatId, 'Oops, something went wrong. Please try again later. /start');
-        });
+        }
+
         
     } catch (error) {
       console.error(error);
@@ -258,7 +263,10 @@ bot.onText(/\/timetable/, async (msg) => {
         User.findOneAndDelete({ chatId })
         .then((deletedUser) => {
             if (deletedUser) {
-                bot.sendMessage(chatId, `Profile deleted successfully.`);
+               bot.sendMessage(chatId, `Profile deleted successfully.`);
+               if(user.notify){
+                bot.sendMessage(chatId, `Notification system still active. /stop`);
+                }
             // Do something else if needed
             } else {
                 bot.sendMessage(chatId, `No user not found.`);
@@ -276,31 +284,33 @@ bot.onText(/\/timetable/, async (msg) => {
 
 
 cron.schedule('* * * * *', () => {
-    
-    const timezone = 'Asia/Kolkata'; 
-    const now = moment(); 
-    const dayOfWeek = now.tz(timezone).format('dddd').toLowerCase();
-    const time = now.tz(timezone).format('HH:mm'); 
+    try{
+        const timezone = 'Asia/Kolkata'; 
+        const now = moment(); 
+        const dayOfWeek = now.tz(timezone).format('dddd').toLowerCase();
+        const time = now.tz(timezone).format('HH:mm'); 
 
-    MessageTime.findOne({}).exec((err, data) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      const messages = data[dayOfWeek];
-      if (messages && messages.length > 0) {
-        const messagesToSend = messages.filter((m) => m.time === time);
-        messagesToSend.forEach((messageToSend) => {
-        bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend,{parse_mode:'HTML'})
-            .then(() => {
-                // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
-            })
-            .catch((error) => {
-                console.error(error);
+        MessageTime.findOne({}).exec((err, data) => {
+        if (err) {
+            console.error(err);
+        }
+        const messages = data&&data[dayOfWeek];
+        if (messages && messages.length > 0) {
+            const messagesToSend = messages.filter((m) => m.time === time);
+            messagesToSend.forEach((messageToSend) => {
+            bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend,{parse_mode:'HTML'})
+                .then(() => {
+                    // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
+                })
+                .catch((error) => {
+                    console.error(error);
+                });
             });
+        }
         });
-      }
-    });
+    }catch (error) {
+        console.error(error);
+    }
 });
 
 
@@ -322,7 +332,7 @@ const addMessageTime=async(sch,chatId)=>{
                 }
                 for (const subject of subjects) {
                     let message = '<b>Class Reminder:</b>\n';
-                    message += `[${time}]\n`;
+                    message += `<b>[${time}]:</b>\n`;
                     message += `\t<code>${subject.Sub_Code}:${subject.Sub_Name}\n`;
                     message += `\t${subject.Room} | ${subject.Roll_No} | ${subject.Att}%\n`;
                     message+='</code>\n';
@@ -371,13 +381,11 @@ bot.onText(/\/stop/, async (msg) => {
     const chatId = msg.chat.id;
     try {
         const user = await User.findOne({ chatId });
-        if (!user) {
-            bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
-            return;
-        }
-        if(user.notify==false){
-            bot.sendMessage(chatId, "Notification service already inactive.");
-            return;
+        if (user) {
+            if(user.notify==false){
+                bot.sendMessage(chatId, "Notification service already inactive.");
+                return;
+            }
         }
 
         const chatIdToDelete = chatId; 

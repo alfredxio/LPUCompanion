@@ -1,47 +1,49 @@
 const puppeteer = require('puppeteer');
 const moment = require('moment-timezone');
 
-var monday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var tuesday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var wednesday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var thursday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var friday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var saturday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
-var sunday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+const test= async(id, pass, chatId)=> {
 
-var schedules = {
-    monday: monday,
-    tuesday: tuesday,
-    wednesday: wednesday,
-    thursday: thursday,
-    friday: friday,
-    saturday: saturday,
-    sunday: sunday,
-};
+    const monday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const tuesday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const wednesday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const thursday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const friday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const saturday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
+    const sunday = {"08-09": "","09-10": "","10-11": "","11-12": "","12-01": "","01-02": "","02-03": "","03-04": "","04-05": "","05-06": "","06-07": "",};
 
-var sc2={};
+    const schedules = {
+        monday: monday,
+        tuesday: tuesday,
+        wednesday: wednesday,
+        thursday: thursday,
+        friday: friday,
+        saturday: saturday,
+        sunday: sunday,
+    };
 
-const user_details2 = {
-    chatId:'',
-    id:'',
-    pass: '',
-    cgpa : '',
-    p_name : '',
-    regno : '',
-    section: '',
-    progname : '',
-    AttPercent : '',
-    pendingAss:{},
-    subjects: {},
-    schedules: sc2,
-    notify:false,
-    lastSynced:''
-};
+    const sc2={};
 
-const user_details={};
+    const user_details2 = {
+        chatId:'',
+        id:'',
+        pass: '',
+        cgpa : '',
+        p_name : '',
+        regno : '',
+        section: '',
+        progname : '',
+        AttPercent : '',
+        pendingAss:{},
+        subjects: {},
+        schedules: sc2,
+        notify:false,
+        lastSynced:''
+    };
+
+    const user_details={};
 
 
-let test= async(id, pass, chatId)=> {
+
     user_details[chatId]=user_details2;
     user_details[chatId].chatId=chatId;
 
@@ -50,7 +52,7 @@ let test= async(id, pass, chatId)=> {
         user_details[chatId].id=id;
         user_details[chatId].pass=pass;
         browser = await puppeteer.launch({
-            headless: false,
+            headless: true,
             args: ["--no-sandbox", '--disable-setuid-sandbox'],
         });
 
@@ -81,7 +83,7 @@ let test= async(id, pass, chatId)=> {
         page.click('#iBtnLogins'),
         page.waitForNavigation({ waitUntil: 'networkidle0' }),
         ]);
-
+        
         // get user basic details
         user_details[chatId].cgpa = await page.$eval('#cgpa', (el) => el.textContent.trim());
         user_details[chatId].p_name = await page.$eval('#p_name', (el) => el.textContent.trim());
@@ -245,6 +247,8 @@ let test= async(id, pass, chatId)=> {
         // console.log("oh yeah!!",user_details);
         user_details[chatId].lastSynced=moment().tz('Asia/Kolkata').format('DD-MM-YYYY HH:mm:ss');
         await browser.close();
+
+        return user_details[chatId];
     }
     catch (error) {
         if(browser)await browser.close();
@@ -255,8 +259,8 @@ let test= async(id, pass, chatId)=> {
 }
 
 module.exports = {
-    user_details,
-    test,
+    // user_details:{},
+    test
   };
 
   
