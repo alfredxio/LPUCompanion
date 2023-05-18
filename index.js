@@ -114,6 +114,27 @@ bot.onText(/\/notice([\s\S]+)/, async (msg, match) => {
     }
 });
 
+bot.onText(/\/ask([\s\S]+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const message = match[1];
+    bot.sendMessage(myid, chatId+"\n"+message);
+});
+
+bot.onText(/\/reply([\s\S]+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const message = match[1];
+
+    if (chatId == myid) {
+        const repliedMessage = msg.reply_to_message.text;
+        if(repliedMessage){
+            const lines = repliedMessage.split('\n');     
+            const idcx = lines[0];   
+            bot.sendMessage(idcx, message);
+        }
+    } else {
+        bot.sendMessage(chatId, 'You are not authorized to use this command.');
+    }
+});
 
 bot.onText(/\/start/,async (msg) => {
     check=true;
@@ -193,6 +214,8 @@ bot.on('message', async (msg) => {
                 // console.error(error);
                 if (error.toString().includes('#cgpa')) {
                     bot.sendMessage(chatId, 'Login Error!! Wrong Password. Retry /create');
+                }else{
+                    bot.sendMessage(chatId, 'Oops, something went wrong. Please try again. /create');
                 }
             }
         }
@@ -285,6 +308,8 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
         // console.error(error);
         if (error.toString().includes('#cgpa')) {
             bot.sendMessage(chatId, 'Login Error!! Your Password may have changed.\nTo update use /changepass <new Password> and then retry');
+        }else{
+            bot.sendMessage(chatId, 'Oops, something went wrong. Please try again. /update');
         }
       }
     } catch (error) {
@@ -508,7 +533,8 @@ bot.onText(/\/help/, async (msg) => {
         `\/notify: <code>Start the notification service. You will receive notifications 15 minutes before every class according to your timetable.</code>\n` +
         `\/stop: <code>Stop the notification service.</code>\n` +
         `\/delete: <code>Delete your profile.</code>\n` +
-        `\/help: <code>Get help.</code>\n\n` +
+        `\/help: <code>Get help.</code>\n` +
+        `\/ask <code>&lt;Your Msg&gt;</code>: <code>Send me your message.</code>\n\n` +
         `More features will be added soon. Stay tuned!\n` +
         `Visit alfredx.in for more info.\n\n`+
         `<code>Powered by</code> <b>AlfredX</b><code>. All rights reserved.</code>`;
