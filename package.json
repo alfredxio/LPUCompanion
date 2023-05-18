@@ -1,0 +1,21 @@
+{
+  "name": "lpucompanion",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cryptr": "^6.2.0",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.40",
+    "mongoose": "^6.10.0",
+    "node-cron": "^3.0.2",
+    "node-schedule": "^2.1.1",
+    "node-telegram-bot-api": "^0.61.0",
+    "puppeteer": "^19.7.2"
+  }
+}
