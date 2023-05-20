@@ -73,7 +73,7 @@ const replyKeyboard = {
   };
 
 
-  //encryption code
+// ANCHOR encryption code
 const secretKey = keys.secretKey;
 const cryptr = new Cryptr(secretKey);
 function encryptText(text) {
@@ -87,7 +87,7 @@ function decryptText(encryptedData) {
 
 const myid=keys.myid;
 
-//send notices to all users
+//ANCHOR Notice
 async function notice(message) {
     try {
         const users = await UserIds.find().lean();
@@ -114,6 +114,8 @@ bot.onText(/\/notice([\s\S]+)/, async (msg, match) => {
     }
 });
 
+
+//ANCHOR Ask and Reply
 bot.onText(/\/ask([\s\S]+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const message = match[1];
@@ -136,6 +138,26 @@ bot.onText(/\/reply([\s\S]+)/, async (msg, match) => {
     }
 });
 
+//ANCHOR Get Users
+bot.onText(/\/users/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    if (chatId == myid) {
+        // * get number of users
+        bot.sendMessage(chatId, `Fetching Wait!!`);
+        try{ 
+            const users = await User.find().lean().exec();
+            const usersize = users.map((user) => user.chatId).length;
+            bot.sendMessage(chatId, `Current Total Users: ${usersize}`);
+        }catch (error) {
+            console.error(error);
+            bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+        }
+    } else {
+        bot.sendMessage(chatId, 'You are not authorized to use this command.');
+    }
+});
+
+//ANCHOR Start
 bot.onText(/\/start/,async (msg) => {
     check=true;
     const chatId = msg.chat.id;
@@ -166,6 +188,7 @@ bot.onText(/\/start/,async (msg) => {
     });
 });
 
+//ANCHOR Create Profile
 bot.onText(/\/create/, async (msg) => {
     const chatId = msg.chat.id;
     const newu = {
@@ -222,7 +245,7 @@ bot.on('message', async (msg) => {
     }
 });
 
-
+//ANCHOR Get Timetable
 bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     const chatId = msg.chat.id;
     try {
@@ -253,6 +276,7 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     }
   });
 
+  //ANCHOR Get Assignments
   bot.onText(/\/assignments/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -282,7 +306,7 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     }
   });
 
-
+//ANCHOR Update Info
   bot.onText(/\/update/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -318,6 +342,7 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     }
   });
 
+  //ANCHOR Change Password
   bot.onText(/\/changepass(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const newpass = match[1];
@@ -350,6 +375,7 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
     }
 });
 
+//ANCHOR Delete Profile
   bot.onText(/\/delete/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -381,6 +407,8 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
 
 
 
+
+//ANCHOR Notification Service
 cron.schedule('* * * * *', () => {
     try{
         const timezone = 'Asia/Kolkata'; 
@@ -476,6 +504,7 @@ bot.onText(/\/notify/, async (msg) => {
     }
 });
 
+
 bot.onText(/\/stop/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -521,6 +550,8 @@ bot.onText(/\/stop/, async (msg) => {
     }
 });
 
+
+//ANCHOR Help
 bot.onText(/\/help/, async (msg) => {
     const chatId = msg.chat.id;
     const helpText = `<b>Here are all the commands you can use:</b>\n\n` +
