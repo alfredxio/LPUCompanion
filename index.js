@@ -12,6 +12,9 @@ mongoose.connect(keys.mongouri, { useNewUrlParser: true, useUnifiedTopology: tru
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.log('Error with mongoDB'));
 
+
+//ANCHOR - Schemas
+
 const userSchema = new mongoose.Schema({
     chatId: {type: Number,required: true,unique: true},
     id: {type: String,required: true,unique: true},
@@ -23,6 +26,7 @@ const userSchema = new mongoose.Schema({
     progname: {type: String},
     AttPercent: {type: String},
     pendingAss: {type: Object,default: {}},
+    exams: {type: Array,default: []},
     subjects: {type: Object,default: {}},
     schedules: {type: Object,default: {}},
     notify: {type: Boolean,default: false},
@@ -65,7 +69,8 @@ const user_details = {};
 const replyKeyboard = {
     keyboard: [
         ['/timetable', '/assignments'],
-        ['/update','/delete'],
+        ['/update','/exams'],
+        ['/help','/delete'],
         ['/notify','/stop']
     ],
     resize_keyboard: true,
@@ -103,6 +108,8 @@ async function notice(message) {
     }
 }
 
+//ANCHOR Send Notice to everyone
+
 bot.onText(/\/notice([\s\S]+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const message = match[1];
@@ -114,12 +121,21 @@ bot.onText(/\/notice([\s\S]+)/, async (msg, match) => {
     }
 });
 
-
 //ANCHOR Ask and Reply
 bot.onText(/\/ask([\s\S]+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const message = match[1];
-    bot.sendMessage(myid, chatId+"\n"+message);
+    try{
+        const user = await User.findOne({ chatId }).lean().exec();
+        if (user) {
+        const pName = user.p_name;
+        const msgtosend = `Message from ${pName}:\n\n${message}`;
+        bot.sendMessage(myid, chatId+"\n"+msgtosend);
+        }
+    }catch (error) {
+        console.error(error);
+        bot.sendMessage(chatId, 'An error occurred. Please try again later.');
+    }
 });
 
 bot.onText(/\/reply([\s\S]+)/, async (msg, match) => {
@@ -183,7 +199,7 @@ bot.onText(/\/start/,async (msg) => {
                 reply_markup: JSON.stringify(replyKeyboard)});
         }
         else {
-          bot.sendMessage(chatId, 'Welcome to LPUCompanion! To get started, please create a profile using the /create command.');
+          bot.sendMessage(chatId, 'Welcome to LPUCompanion! To get started, please create a profile using the /create command. To know more about the bot, use the /help command.');
         }
     });
 });
@@ -226,13 +242,20 @@ bot.on('message', async (msg) => {
             bot.sendMessage(chatId, `Wait while we are collecting data`);   
 
             try {
+                const startTime = new Date();
                 const userDetails = await getDetails.test(user_details[chatId].id, user_details[chatId].pass, chatId);
                 user_details[chatId].pass=encryptText(user_details[chatId].pass);
                 userDetails.pass=user_details[chatId].pass;
                 const newUser = new User(userDetails);
                 await newUser.save();
+                const endTime = new Date();
+                const executionTime = (endTime - startTime)/1000;
+                
+                await addExamTime(chatId)
+                .then(() => {})
+                .catch(error => console.error('Error saving exam msgs.'));  
 
-                bot.sendMessage(chatId, 'Your profile has been created! You can /start again. Enjoy!');
+                bot.sendMessage(chatId, `Your profile has been created! You can /start again. Enjoy!\n<code>Executed in ${executionTime}ms</code>`,{parse_mode:'HTML'});
             } catch (error) {
                 // console.error(error);
                 if (error.toString().includes('#cgpa')) {
@@ -299,12 +322,56 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
         message+=`</code>Last Synced:${user.lastSynced}\nWe suggest you /update.`;
         bot.sendMessage(chatId, `${message}`,{parse_mode:'HTML'});
         
+    } catch (error) {
+      console.error(error);
+      bot.sendMessage(chatId, "An error occurred while fetching the user's profile.");
+    }
+  });
+
+  //ANCHOR Get Exams
+
+  bot.onText(/\/exams/, async (msg) => {
+    const chatId = msg.chat.id;
+    try {
+      const user = await User.findOne({ chatId });
+      if (!user) {
+        bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
+        return;
+      }
+  
+      if (user.exams.length === 0) {
+        bot.sendMessage(chatId, "No Exams Found!! Please /update.");
+        return;
+      }
+  
+      const data2 = user.exams;
+      const currentDateIST = moment().utcOffset("+05:30");
+
+      let message = '<strong>Pending Exams:</strong>\n\n';
+      for (const exam of data2) {
+        const examDate = moment(exam.date, 'DD MMM YYYY').utcOffset("+05:30");
+        if (examDate.isAfter(currentDateIST)) {
+            message += `${exam.courseCode} [${exam.courseName}]\n`;
+            message += `<code>Exam Type: ${exam.examType}\n`;
+            message += `Room No.: ${exam.roomNo}\n`;
+            message += `Date: ${exam.date}\n`;
+            message += `Time: ${exam.time}\n`;
+            message += `Instructions: ${exam.instructions}</code>`;
+            message += '\n \n';
+        }
+      }      
+
+      message += `Last Synced:${user.lastSynced}\nWe suggest you /update.`;
+      bot.sendMessage(chatId, `${message}`, { parse_mode: 'HTML' });
 
     } catch (error) {
       console.error(error);
       bot.sendMessage(chatId, "An error occurred while fetching the user's profile.");
     }
   });
+  
+
+
 
 //ANCHOR Update Info
   bot.onText(/\/update/, async (msg) => {
@@ -315,19 +382,27 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
         bot.sendMessage(chatId, "No profile found. Please create a profile using the /create command.");
         return;
       }
-  
+      bot.sendMessage(chatId, "Wait!! Your profile is being updated.");
       try {
         const tempass = decryptText(user.pass);
+        const startTime = new Date();
+        const ayee=user.notify;
         const newUserDetails = await getDetails.test(user.id, tempass, chatId);
         newUserDetails.pass = encryptText(newUserDetails.pass);
-  
+        newUserDetails.notify = ayee;
         await User.findOneAndUpdate(
           { chatId: chatId },
           newUserDetails,
           { upsert: true, new: true }
         ).exec();
-  
-        bot.sendMessage(chatId, 'Your profile has been updated! You can /start again. Enjoy!');
+        const endTime = new Date();
+        const executionTime = (endTime - startTime)/1000;
+
+        await addExamTime(chatId)
+            .then(() => {})
+            .catch(error => console.error('Error saving exam msgs.'));    
+
+        bot.sendMessage(chatId, `Your profile has been updated! You can /start again. Enjoy!\n<code>Executed in ${executionTime}ms</code>`,{parse_mode:'HTML'});
       } catch (error) {
         // console.error(error);
         if (error.toString().includes('#cgpa')) {
@@ -409,6 +484,7 @@ bot.onText(/\/timetable\s*(\S+)?/, async (msg,match) => {
 
 
 //ANCHOR Notification Service
+
 cron.schedule('* * * * *', () => {
     try{
         const timezone = 'Asia/Kolkata'; 
@@ -424,13 +500,25 @@ cron.schedule('* * * * *', () => {
         if (messages && messages.length > 0) {
             const messagesToSend = messages.filter((m) => m.time === time);
             messagesToSend.forEach((messageToSend) => {
-            bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend,{parse_mode:'HTML'})
-                .then(() => {
-                    // console.log(`Message sent to chat ${messageToSend.chatId}: ${messageToSend.msgtosend}`);
-                })
-                .catch((error) => {
-                    console.error(error);
-                });
+
+                bot.sendMessage(messageToSend.chatId, messageToSend.msgtosend,{parse_mode:'HTML'})
+                    .then(() => {
+                        if (messageToSend.msgtosend.startsWith('*')){
+                            MessageTime.findOneAndUpdate(
+                                {},
+                                { $pull: { [dayOfWeek]: { _id: messageToSend._id } } },
+                                { multi: true },
+                                (err) => {
+                                    if (err) {
+                                        console.error(err);
+                                    }
+                                }
+                            );
+                        }
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                    });
             });
         }
         });
@@ -438,8 +526,6 @@ cron.schedule('* * * * *', () => {
         console.error(error);
     }
 });
-
-
 
 const addMessageTime=async(sch,chatId)=>{
     try{
@@ -476,6 +562,36 @@ const addMessageTime=async(sch,chatId)=>{
     }catch (error) {
         console.error(error);
     }
+};
+
+const addExamTime=async(chatId)=>{
+    try {
+        const user = await User.findOne({ chatId });
+        if (!user||user.exams.length === 0) {
+          return;
+        }
+        const data2 = user.exams;
+        const currentDateIST = moment().utcOffset("+05:30");
+  
+        for (const exam of data2) {
+          const examDate = moment(exam.date, 'DD MMM YYYY').utcOffset("+05:30");
+          if (examDate.isAfter(currentDateIST)) {
+              const day = examDate.format('dddd').toLowerCase();
+              let msgx = '*Best of Luck!!+\n';
+              msgx+=`${exam.courseCode} [${exam.courseName}]\n`;
+              msgx+=`Room No: <code>${exam.roomNo}</code>\n`
+              msgx+=`Time: <code>${exam.time}</code>\n`;
+              const update = { $push: { [day]: { chatId: chatId, time: '06:00', msgtosend: msgx } } };
+              const options = { upsert: true };
+              await MessageTime.updateOne({}, update, options)
+              .then(()=>{})
+              .catch(error => {console.error('Error saving Exam info document:', error);return false;});
+  
+          }
+        } 
+      } catch (error) {
+        console.error(error);
+      }
 };
 
 
@@ -560,6 +676,7 @@ bot.onText(/\/help/, async (msg) => {
         `\/update: <code>To update your profile.</code>\n` +
         `\/timetable: <code>Fetch your timetable. Use it like "/timetable monday" to get the timetable for a specific day.</code>\n` +
         `\/assignments: <code>See all pending assignments. You may need to use \/update before using this command.</code>\n` +
+        `\/exams: <code>See all pending exams. You may need to use \/update before using this command.</code>\n` +
         `\/changepass <code>&lt;newpass&gt;</code>: <code>Reset your password.</code>\n` +
         `\/notify: <code>Start the notification service. You will receive notifications 15 minutes before every class according to your timetable.</code>\n` +
         `\/stop: <code>Stop the notification service.</code>\n` +
@@ -569,7 +686,7 @@ bot.onText(/\/help/, async (msg) => {
         `More features will be added soon. Stay tuned!\n` +
         `Visit alfredx.in for more info.\n\n`+
         `<code>Powered by</code> <b>AlfredX</b><code>. All rights reserved.</code>`;
-        
+
     bot.sendMessage(chatId, helpText, { parse_mode: 'HTML' });
 });
 
